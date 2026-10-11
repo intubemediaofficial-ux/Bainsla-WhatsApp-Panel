@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { encrypt, maskSecret } from "@/lib/secret";
 import { audit, body, handle, json, requireOwner, requireWs } from "@/lib/api";
 
 export const GET = handle(async () => {
   const s = await requireWs();
   const ws = await prisma.workspace.findUnique({ where: { id: s.wid }, include: { plan: true } });
-  return json({ ...ws, aiApiKey: ws?.aiApiKey ? "••••" + ws.aiApiKey.slice(-4) : null, role: s.role });
+  return json({ ...ws, aiApiKey: maskSecret(ws?.aiApiKey), webhookSecret: ws?.webhookSecret, role: s.role });
 });
 
 export const PATCH = handle(async (req: NextRequest) => {
@@ -14,7 +15,7 @@ export const PATCH = handle(async (req: NextRequest) => {
   const data: Record<string, unknown> = {};
   for (const k of ["name", "brandName", "logoUrl", "primaryColor", "webhookUrl", "aiProvider", "aiModel", "aiPrompt"]) if (b[k] !== undefined) data[k] = b[k] || null;
   if (b.aiEnabled !== undefined) data.aiEnabled = !!b.aiEnabled;
-  if (typeof b.aiApiKey === "string" && b.aiApiKey && !b.aiApiKey.startsWith("••••")) data.aiApiKey = b.aiApiKey;
+  if (typeof b.aiApiKey === "string" && b.aiApiKey && !b.aiApiKey.startsWith("••••")) data.aiApiKey = encrypt(b.aiApiKey.trim());
   if (b.settings && typeof b.settings === "object") {
     const cur = await prisma.workspace.findUnique({ where: { id: s.wid } });
     data.settings = { ...((cur?.settings as object) || {}), ...(b.settings as object) };

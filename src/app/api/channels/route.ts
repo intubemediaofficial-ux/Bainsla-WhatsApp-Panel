@@ -4,8 +4,9 @@ import { prisma } from "@/lib/db";
 import { audit, body, handle, HttpError, json, requireOwner, requireWs } from "@/lib/api";
 import { fetchPhoneInfo } from "@/lib/wa";
 import { checkLimit } from "@/lib/workspace";
+import { encrypt, maskSecret } from "@/lib/secret";
 
-const safe = <T extends { accessToken?: string | null; appSecret?: string | null }>(c: T) => ({ ...c, accessToken: c.accessToken ? "••••" + c.accessToken.slice(-4) : null, appSecret: c.appSecret ? "••••" : null });
+const safe = <T extends { accessToken?: string | null; appSecret?: string | null }>(c: T) => ({ ...c, accessToken: maskSecret(c.accessToken), appSecret: c.appSecret ? "••••" : null });
 
 export const GET = handle(async () => {
   const s = await requireWs();
@@ -29,7 +30,7 @@ export const POST = handle(async (req: NextRequest) => {
   const count = await prisma.channel.count({ where: { workspaceId: s.wid } });
   const ch = await prisma.channel.create({
     data: {
-      workspaceId: s.wid, ...draft, name: b.name || info.verified_name || "WhatsApp", displayPhone: info.display_phone_number, verifiedName: info.verified_name,
+      workspaceId: s.wid, ...draft, accessToken: encrypt(draft.accessToken), name: b.name || info.verified_name || "WhatsApp", displayPhone: info.display_phone_number, verifiedName: info.verified_name,
       quality: info.quality_rating, status: "CONNECTED", isDefault: count === 0, config: { verifyToken: randomBytes(12).toString("hex") },
     },
   });

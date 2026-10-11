@@ -1,3 +1,4 @@
+import { decrypt } from "./secret";
 import type { Workspace } from "@prisma/client";
 import { prisma } from "./db";
 import { getSetting } from "./settings";
@@ -35,7 +36,7 @@ export async function retrieve(workspaceId: string, query: string, k = 4) {
 export async function aiConfig(ws: Workspace) {
   const g = await getSetting("ai");
   const provider = ws.aiProvider || g.provider;
-  const apiKey = ws.aiApiKey || g.apiKey;
+  const apiKey = decrypt(ws.aiApiKey) || decrypt(g.apiKey);
   const baseUrl =
     provider === "gemini" ? "https://generativelanguage.googleapis.com/v1beta/openai" : provider === "custom" ? g.baseUrl : "https://api.openai.com/v1";
   const model = ws.aiModel || (provider === "gemini" ? "gemini-2.0-flash" : g.model || "gpt-4o-mini");

@@ -22,7 +22,7 @@ export function handle(fn: (req: NextRequest, ctx: Ctx) => Promise<Response>) {
       if (e instanceof HttpError) return json({ error: e.message }, e.status);
       if (e instanceof ZodError) return json({ error: e.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ") }, 400);
       console.error(e);
-      return json({ error: e instanceof Error ? e.message : "Server error" }, 500);
+      return json({ error: "Server error — please try again" }, 500);
     }
   };
 }
@@ -33,6 +33,11 @@ export async function requireWs(): Promise<WsSession> {
   const s = await getSession();
   if (!s) throw new HttpError(401, "Login required");
   if (!s.wid) throw new HttpError(403, "No workspace");
+  if (!s.imp) {
+    const u = await prisma.user.findUnique({ where: { id: s.uid }, select: { active: true, workspace: { select: { status: true } } } });
+    if (!u || !u.active) throw new HttpError(401, "Account disabled — contact support");
+    if (u.workspace && u.workspace.status !== "ACTIVE") throw new HttpError(403, "Workspace suspended — contact support");
+  }
   return s as WsSession;
 }
 

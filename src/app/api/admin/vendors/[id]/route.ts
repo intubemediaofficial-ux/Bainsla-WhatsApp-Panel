@@ -2,15 +2,29 @@ import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { audit, body, handle, HttpError, json, requireAdmin } from "@/lib/api";
+import { vendorDetail } from "./detail";
+
+export const GET = handle(async (_req: NextRequest, ctx) => {
+  await requireAdmin();
+  const { id } = await ctx.params;
+  const d = await vendorDetail(id);
+  if (!d) throw new HttpError(404, "Not found");
+  return json(d);
+});
 
 export const PATCH = handle(async (req: NextRequest, ctx) => {
   const s = await requireAdmin();
   const { id } = await ctx.params;
   const ws = await prisma.workspace.findUnique({ where: { id } });
   if (!ws) throw new HttpError(404, "Not found");
-  const b = await body<{ status?: string; planId?: string; extendDays?: number; walletAdjust?: number; note?: string; planExpiresAt?: string }>(req);
+  const b = await body<{ name?: string; status?: string; planId?: string; extendDays?: number; walletAdjust?: number; note?: string; planExpiresAt?: string }>(req);
   const data: Prisma.WorkspaceUpdateInput = {};
-  if (b.status) data.status = b.status;
+  if (b.name?.trim()) data.name = b.name.trim();
+  if (b.status) {
+    if (!["ACTIVE", "SUSPENDED"].includes(b.status)) throw new HttpError(400, "Bad status");
+    data.status = b.status;
+    await prisma.user.updateMany({ where: { workspaceId: id }, data: { active: b.status === "ACTIVE" } });
+  }
   if (b.planId) {
     const p = await prisma.plan.findUnique({ where: { id: b.planId } });
     if (!p) throw new HttpError(400, "Plan not found");

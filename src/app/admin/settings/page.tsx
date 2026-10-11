@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import * as I from "lucide-react";
 import { api, Field, PageHero, Spinner, toast } from "@/components/ui";
 
-type All = Record<"branding" | "pricing" | "payment" | "ai", Record<string, string | number | boolean>>;
-const LABELS: Record<string, string> = { appName: "Panel name", tagline: "Tagline", logoUrl: "Logo URL", primaryColor: "Brand colour", supportPhone: "Support phone", supportEmail: "Support email", marketing: "Marketing msg (₹)", utility: "Utility msg (₹)", authentication: "Auth msg (₹)", service: "Service msg (₹)", enabled: "Deduct from wallet per message", upiId: "UPI ID", payeeName: "Payee name", qrUrl: "UPI QR image URL", instructions: "Instructions", gstPercent: "GST %", provider: "Provider", apiKey: "API key", model: "Model", baseUrl: "Base URL" };
-const SECTIONS: [keyof All, string, keyof typeof I][] = [["branding", "White-label branding", "Palette"], ["payment", "Payment (UPI)", "IndianRupee"], ["pricing", "Per-message pricing", "Receipt"], ["ai", "Platform AI key", "Sparkles"]];
+type All = Record<"branding" | "pricing" | "payment" | "ai" | "meta", Record<string, string | number | boolean>>;
+const LABELS: Record<string, string> = { appName: "Panel name", tagline: "Tagline", logoUrl: "Logo URL", primaryColor: "Brand colour", supportPhone: "Support phone", supportEmail: "Support email", marketing: "Marketing msg (₹)", utility: "Utility msg (₹)", authentication: "Auth msg (₹)", service: "Service msg (₹)", enabled: "Deduct from wallet per message", upiId: "UPI ID", payeeName: "Payee name", qrUrl: "UPI QR image URL", instructions: "Instructions", gstPercent: "GST %", provider: "Provider", apiKey: "API key", model: "Model", baseUrl: "Base URL", appId: "Meta App ID", appSecret: "Meta App Secret (webhook signature check)", verifyToken: "Webhook verify token", graphVersion: "Graph API version" };
+const SECTIONS: [keyof All, string, keyof typeof I][] = [["branding", "White-label branding", "Palette"], ["payment", "Payment (UPI)", "IndianRupee"], ["pricing", "Per-message pricing", "Receipt"], ["ai", "Platform AI key", "Sparkles"], ["meta", "Meta / WhatsApp app", "MessageCircle"]];
 
 export default function AdminSettings() {
   const [d, setD] = useState<All | null>(null);

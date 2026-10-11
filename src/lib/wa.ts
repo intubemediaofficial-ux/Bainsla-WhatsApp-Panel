@@ -1,4 +1,5 @@
 import type { Channel } from "@prisma/client";
+import { decrypt } from "./secret";
 
 const GRAPH = () => `https://graph.facebook.com/${process.env.GRAPH_VERSION || "v21.0"}`;
 
@@ -16,7 +17,7 @@ async function graph<T = Record<string, unknown>>(path: string, token: string, i
 
 function need(ch: Pick<Channel, "accessToken" | "phoneNumberId">) {
   if (!ch.accessToken || !ch.phoneNumberId) throw new Error("WhatsApp number is not connected");
-  return { token: ch.accessToken, pnid: ch.phoneNumberId };
+  return { token: decrypt(ch.accessToken), pnid: ch.phoneNumberId };
 }
 
 export async function sendWa(ch: Channel, to: string, payload: WaPayload): Promise<string> {
@@ -89,7 +90,7 @@ export async function listTemplates(ch: Channel): Promise<MetaTemplate[]> {
   const out: MetaTemplate[] = [];
   let next: string | null = `/${ch.wabaId}/message_templates?limit=200&fields=id,name,language,category,status,components,rejected_reason`;
   while (next) {
-    const j: { data: MetaTemplate[]; paging?: { next?: string } } = await graph(next, ch.accessToken);
+    const j: { data: MetaTemplate[]; paging?: { next?: string } } = await graph(next, decrypt(ch.accessToken));
     out.push(...j.data);
     next = j.paging?.next ? j.paging.next.replace(GRAPH(), "") : null;
   }
@@ -98,7 +99,7 @@ export async function listTemplates(ch: Channel): Promise<MetaTemplate[]> {
 
 export async function createTemplate(ch: Channel, t: { name: string; language: string; category: string; components: unknown[] }) {
   if (!ch.wabaId || !ch.accessToken) throw new Error("WABA ID / token missing on this number");
-  return graph<{ id: string; status: string; category: string }>(`/${ch.wabaId}/message_templates`, ch.accessToken, {
+  return graph<{ id: string; status: string; category: string }>(`/${ch.wabaId}/message_templates`, decrypt(ch.accessToken), {
     method: "POST",
     body: JSON.stringify(t),
   });
@@ -106,7 +107,7 @@ export async function createTemplate(ch: Channel, t: { name: string; language: s
 
 export async function deleteTemplate(ch: Channel, name: string) {
   if (!ch.wabaId || !ch.accessToken) return;
-  await graph(`/${ch.wabaId}/message_templates?name=${encodeURIComponent(name)}`, ch.accessToken, { method: "DELETE" });
+  await graph(`/${ch.wabaId}/message_templates?name=${encodeURIComponent(name)}`, decrypt(ch.accessToken), { method: "DELETE" });
 }
 
 export async function downloadMedia(ch: Channel, mediaId: string): Promise<{ buf: Buffer; mime: string }> {

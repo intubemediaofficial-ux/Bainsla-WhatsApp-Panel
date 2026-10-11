@@ -2,19 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import { handleWebhook } from "@/lib/inbound";
+import { getSetting } from "@/lib/settings";
+import { decrypt } from "@/lib/secret";
+
+async function metaCfg() {
+  const m = await getSetting("meta");
+  return { verifyToken: process.env.WA_VERIFY_TOKEN || m.verifyToken, appSecret: process.env.META_APP_SECRET || decrypt(m.appSecret) };
+}
 
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const token = p.get("hub.verify_token");
-  const want = process.env.WA_VERIFY_TOKEN;
-  const ok = p.get("hub.mode") === "subscribe" && token && (token === want || (await prisma.channel.findFirst({ where: { config: { path: ["verifyToken"], equals: token } } })));
+  const want = (await metaCfg()).verifyToken;
+  const ok = p.get("hub.mode") === "subscribe" && token && ((want && token === want) || (await prisma.channel.findFirst({ where: { config: { path: ["verifyToken"], equals: token } } })));
   if (ok) return new NextResponse(p.get("hub.challenge") || "", { status: 200 });
   return new NextResponse("Forbidden", { status: 403 });
 }
 
 export async function POST(req: NextRequest) {
   const raw = await req.text();
-  const secret = process.env.META_APP_SECRET;
+  const secret = (await metaCfg()).appSecret;
   if (secret) {
     const sig = req.headers.get("x-hub-signature-256") || "";
     const exp = "sha256=" + createHmac("sha256", secret).update(raw).digest("hex");

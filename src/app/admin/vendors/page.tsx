@@ -26,7 +26,7 @@ function Vendors() {
         {!d ? <div className="flex justify-center py-10"><Spinner /></div> : (
           <div className="overflow-x-auto"><table className="w-full"><thead className="bg-slate-50/70"><tr>{["Business", "Owner", "Plan", "Expires", "Wallet", "Numbers", "Contacts", "Status", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
             <tbody className="divide-y divide-slate-100">{d.items.map((v) => { const o = v.users[0]; const exp = v.planExpiresAt && new Date(v.planExpiresAt) < new Date(); return (
-              <tr key={v.id} className="hover:bg-slate-50/60"><td className="td"><div className="font-semibold">{v.name}</div><div className="text-[11px] text-slate-400">since {fmtDate(v.createdAt)}</div></td>
+              <tr key={v.id} className="hover:bg-slate-50/60"><td className="td"><a href={`/admin/vendors/${v.id}`} className="font-semibold hover:text-emerald-700 hover:underline">{v.name}</a><div className="text-[11px] text-slate-400">since {fmtDate(v.createdAt)}</div></td>
                 <td className="td text-xs"><div>{o?.name}</div><div className="text-slate-500">{o?.email}</div>{o?.phone && <div className="text-slate-400">{o.phone}</div>}</td>
                 <td className="td">{v.plan?.name || "—"}</td><td className={`td text-xs ${exp ? "text-rose-600" : ""}`}>{fmtDate(v.planExpiresAt)}</td><td className="td">{inr(Number(v.wallet))}</td><td className="td">{v._count.channels}</td><td className="td">{v._count.contacts}</td><td className="td"><Badge tone={statusTone(v.status)}>{v.status}</Badge></td>
                 <td className="td whitespace-nowrap text-right">

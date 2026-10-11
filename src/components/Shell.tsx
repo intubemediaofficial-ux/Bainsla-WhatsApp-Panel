@@ -39,6 +39,8 @@ export const CLIENT_NAV: Group[] = [
 export const ADMIN_NAV: Group[] = [
   { label: "Dashboard", icon: "LayoutDashboard", href: "/admin/dashboard" },
   { label: "Vendors", icon: "Store", href: "/admin/vendors" },
+  { label: "All Users", icon: "Users", href: "/admin/users" },
+  { label: "WhatsApp Numbers", icon: "Phone", href: "/admin/numbers" },
   { label: "Payments", icon: "IndianRupee", href: "/admin/payments" },
   { label: "Plans", icon: "Layers", href: "/admin/plans" },
   { label: "Coupons", icon: "Ticket", href: "/admin/coupons" },

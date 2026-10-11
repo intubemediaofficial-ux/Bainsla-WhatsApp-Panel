@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { audit, body, handle, HttpError, json, requireOwner } from "@/lib/api";
 import { fetchPhoneInfo } from "@/lib/wa";
+import { encrypt } from "@/lib/secret";
 
 export const PATCH = handle(async (req: NextRequest, ctx) => {
   const s = await requireOwner();
@@ -24,6 +25,7 @@ export const PATCH = handle(async (req: NextRequest, ctx) => {
     data.status = "ERROR";
     data.config = { ...(ch.config as object), lastError: (e as Error).message };
   }
+  if (typeof data.accessToken === "string") data.accessToken = encrypt(data.accessToken);
   await prisma.channel.update({ where: { id }, data });
   return json({ ok: true, status: data.status });
 });

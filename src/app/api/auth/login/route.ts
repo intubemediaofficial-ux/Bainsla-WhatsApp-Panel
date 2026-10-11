@@ -19,7 +19,7 @@ export const POST = handle(async (req: NextRequest) => {
   if (!user.active) return json({ error: "Account disabled — contact support" }, 403);
   if (user.workspaceId) {
     const ws = await prisma.workspace.findUnique({ where: { id: user.workspaceId } });
-    if (ws?.status === "SUSPENDED") return json({ error: "Workspace suspended — contact support" }, 403);
+    if (ws && ws.status !== "ACTIVE") return json({ error: "Workspace suspended — contact support" }, 403);
   }
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await setSession({ uid: user.id, role: user.role, wid: user.workspaceId, name: user.name, email: user.email });
