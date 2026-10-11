@@ -1,0 +1,603 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  OWNER
+  AGENT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  passwordHash String
+  role         Role     @default(OWNER)
+  workspaceId  String?
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  permissions  Json     @default("[]")
+  active       Boolean  @default(true)
+  online       Boolean  @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  conversations Conversation[] @relation("assignee")
+}
+
+model Plan {
+  id           String   @id @default(cuid())
+  name         String
+  price        Int      @default(0)
+  durationDays Int      @default(30)
+  description  String?
+  limits       Json     @default("{}")
+  features     Json     @default("[]")
+  isDefault    Boolean  @default(false)
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  workspaces   Workspace[]
+}
+
+model Workspace {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  planId        String?
+  plan          Plan?    @relation(fields: [planId], references: [id])
+  planExpiresAt DateTime?
+  wallet        Decimal  @default(0) @db.Decimal(12, 2)
+  status        String   @default("ACTIVE")
+  brandName     String?
+  logoUrl       String?
+  primaryColor  String?
+  webhookUrl    String?
+  webhookSecret String?
+  aiEnabled     Boolean  @default(false)
+  aiProvider    String   @default("openai")
+  aiModel       String?
+  aiApiKey      String?
+  aiPrompt      String?
+  settings      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  users         User[]
+  channels      Channel[]
+  contacts      Contact[]
+}
+
+model Channel {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type          String   @default("whatsapp")
+  name          String
+  phoneNumberId String?  @unique
+  wabaId        String?
+  accessToken   String?
+  displayPhone  String?
+  verifiedName  String?
+  quality       String?
+  appSecret     String?
+  config        Json     @default("{}")
+  status        String   @default("PENDING")
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+model Contact {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  phone         String
+  name          String?
+  email         String?
+  tags          String[] @default([])
+  customFields  Json     @default("{}")
+  optedOut      Boolean  @default(false)
+  stage         String?
+  leadScore     String?
+  source        String?
+  birthday      DateTime?
+  anniversary   DateTime?
+  notes         String?
+  assignedToId  String?
+  lastMessageAt DateTime?
+  lastInboundAt DateTime?
+  createdAt     DateTime @default(now())
+  conversations Conversation[]
+  @@unique([workspaceId, phone])
+  @@index([workspaceId, createdAt])
+}
+
+model Tag {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String @default("#10b981")
+  createdAt   DateTime @default(now())
+  @@unique([workspaceId, name])
+}
+
+model Segment {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  tags        String[] @default([])
+  stage       String?
+  leadScore   String?
+  source      String?
+  createdAt   DateTime @default(now())
+}
+
+model CustomField {
+  id          String @id @default(cuid())
+  workspaceId String
+  key         String
+  label       String
+  type        String @default("text")
+  createdAt   DateTime @default(now())
+}
+
+model Stage {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String @default("#10b981")
+  sortOrder   Int    @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model ImportLog {
+  id          String @id @default(cuid())
+  workspaceId String
+  fileName    String
+  total       Int @default(0)
+  created     Int @default(0)
+  updated     Int @default(0)
+  failed      Int @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model Conversation {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  contactId     String
+  contact       Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  channelId     String?
+  channelType   String   @default("whatsapp")
+  status        String   @default("OPEN")
+  assignedToId  String?
+  assignedTo    User?    @relation("assignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  labels        String[] @default([])
+  unread        Int      @default(0)
+  lastMessageAt DateTime @default(now())
+  lastPreview   String?
+  botPaused     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  messages      Message[]
+  notes         ConversationNote[]
+  @@unique([workspaceId, contactId, channelType])
+  @@index([workspaceId, lastMessageAt])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  contactId      String
+  channelId      String?
+  direction      String
+  type           String   @default("text")
+  body           String?
+  mediaUrl       String?
+  payload        Json?
+  waMessageId    String?  @unique
+  status         String   @default("queued")
+  error          String?
+  sentById       String?
+  sentBy         String?
+  broadcastId    String?
+  createdAt      DateTime @default(now())
+  @@index([conversationId, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+model ConversationNote {
+  id             String @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userName       String
+  body           String
+  createdAt      DateTime @default(now())
+}
+
+model Template {
+  id          String @id @default(cuid())
+  workspaceId String
+  channelId   String?
+  name        String
+  language    String @default("en")
+  category    String @default("MARKETING")
+  status      String @default("DRAFT")
+  components  Json   @default("[]")
+  metaId      String?
+  rejectedReason String?
+  isPreset    Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Broadcast {
+  id          String @id @default(cuid())
+  workspaceId String
+  channelId   String?
+  name        String
+  templateId  String?
+  templateName String?
+  language    String?
+  variables   Json   @default("{}")
+  audience    Json   @default("{}")
+  status      String @default("DRAFT")
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  delayMs     Int    @default(300)
+  total       Int    @default(0)
+  sent        Int    @default(0)
+  delivered   Int    @default(0)
+  read        Int    @default(0)
+  replied     Int    @default(0)
+  failed      Int    @default(0)
+  cost        Decimal @default(0) @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  recipients  BroadcastRecipient[]
+}
+
+model BroadcastRecipient {
+  id          String @id @default(cuid())
+  broadcastId String
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  contactId   String
+  phone       String
+  name        String?
+  status      String @default("PENDING")
+  waMessageId String?
+  error       String?
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  readAt      DateTime?
+  repliedAt   DateTime?
+  @@index([broadcastId, status])
+  @@index([waMessageId])
+}
+
+model Sequence {
+  id           String @id @default(cuid())
+  workspaceId  String
+  name         String
+  kind         String @default("DRIP")
+  trigger      String @default("MANUAL")
+  triggerValue String?
+  steps        Json   @default("[]")
+  active       Boolean @default(true)
+  enrolled     Int    @default(0)
+  createdAt    DateTime @default(now())
+  enrollments  SequenceEnrollment[]
+}
+
+model SequenceEnrollment {
+  id          String @id @default(cuid())
+  sequenceId  String
+  sequence    Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  contactId   String
+  stepIndex   Int    @default(0)
+  nextRunAt   DateTime
+  status      String @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  @@unique([sequenceId, contactId])
+  @@index([status, nextRunAt])
+}
+
+model KeywordRule {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  keywords    String[] @default([])
+  matchType   String @default("CONTAINS")
+  replyType   String @default("TEXT")
+  reply       String?
+  templateId  String?
+  flowId      String?
+  addTag      String?
+  active      Boolean @default(true)
+  hits        Int    @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model QuickReply {
+  id          String @id @default(cuid())
+  workspaceId String
+  shortcut    String
+  body        String
+  createdAt   DateTime @default(now())
+}
+
+model BotFlow {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  triggers    String[] @default([])
+  nodes       Json   @default("[]")
+  edges       Json   @default("[]")
+  active      Boolean @default(true)
+  runs        Int    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FlowSession {
+  id             String @id @default(cuid())
+  conversationId String @unique
+  flowId         String
+  nodeId         String
+  vars           Json   @default("{}")
+  updatedAt      DateTime @updatedAt
+}
+
+model Automation {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  event       String
+  condition   String?
+  action      String
+  actionValue String?
+  delayMinutes Int   @default(0)
+  active      Boolean @default(true)
+  runs        Int    @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model KnowledgeDoc {
+  id          String @id @default(cuid())
+  workspaceId String
+  title       String
+  fileName    String?
+  content     String
+  createdAt   DateTime @default(now())
+}
+
+model Deal {
+  id          String @id @default(cuid())
+  workspaceId String
+  contactId   String?
+  title       String
+  value       Int    @default(0)
+  stage       String @default("New")
+  status      String @default("OPEN")
+  source      String?
+  ownerName   String?
+  phone       String?
+  followUpAt  DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model Lead {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String?
+  phone       String?
+  email       String?
+  source      String @default("manual")
+  status      String @default("NEW")
+  score       String?
+  data        Json   @default("{}")
+  notes       String?
+  followUpAt  DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model Appointment {
+  id          String @id @default(cuid())
+  workspaceId String
+  contactId   String?
+  name        String
+  phone       String
+  service     String?
+  startsAt    DateTime
+  durationMin Int    @default(30)
+  status      String @default("CONFIRMED")
+  notes       String?
+  reminderSent Boolean @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Form {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  slug        String @unique
+  description String?
+  fields      Json   @default("[]")
+  successText String?
+  submissions Int    @default(0)
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Product {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  sku         String?
+  price       Int    @default(0)
+  imageUrl    String?
+  description String?
+  stock       Int?
+  category    String?
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Order {
+  id            String @id @default(cuid())
+  workspaceId   String
+  number        String
+  contactId     String?
+  customerName  String?
+  phone         String?
+  items         Json   @default("[]")
+  total         Int    @default(0)
+  status        String @default("PENDING")
+  paymentStatus String @default("UNPAID")
+  address       String?
+  reminded      Int    @default(0)
+  createdAt     DateTime @default(now())
+}
+
+model TrackedLink {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  slug        String @unique
+  targetUrl   String?
+  phone       String?
+  message     String?
+  source      String?
+  clicks      Int    @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model MediaAsset {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  url         String
+  mime        String?
+  size        Int    @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model ApiKey {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+  prefix      String
+  keyHash     String @unique
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id          String @id @default(cuid())
+  workspaceId String?
+  userName    String?
+  action      String
+  detail      String?
+  createdAt   DateTime @default(now())
+  @@index([workspaceId, createdAt])
+}
+
+model WalletTxn {
+  id          String @id @default(cuid())
+  workspaceId String
+  amount      Decimal @db.Decimal(12, 2)
+  type        String
+  description String?
+  ref         String?
+  status      String @default("SUCCESS")
+  createdAt   DateTime @default(now())
+}
+
+model PaymentRequest {
+  id          String @id @default(cuid())
+  workspaceId String
+  purpose     String @default("WALLET")
+  planId      String?
+  amount      Int
+  utr         String?
+  method      String @default("UPI")
+  couponCode  String?
+  status      String @default("PENDING")
+  adminNote   String?
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id          String @id @default(cuid())
+  workspaceId String
+  number      String @unique
+  description String
+  amount      Int
+  tax         Int    @default(0)
+  status      String @default("PAID")
+  createdAt   DateTime @default(now())
+}
+
+model Coupon {
+  id          String @id @default(cuid())
+  code        String @unique
+  percentOff  Int    @default(0)
+  amountOff   Int    @default(0)
+  maxUses     Int    @default(0)
+  used        Int    @default(0)
+  expiresAt   DateTime?
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Announcement {
+  id          String @id @default(cuid())
+  title       String
+  body        String
+  level       String @default("info")
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model SupportTicket {
+  id          String @id @default(cuid())
+  workspaceId String?
+  userName    String?
+  subject     String
+  message     String
+  priority    String @default("NORMAL")
+  status      String @default("OPEN")
+  reply       String?
+  createdAt   DateTime @default(now())
+}
+
+model CustomerTicket {
+  id          String @id @default(cuid())
+  workspaceId String
+  contactName String?
+  phone       String?
+  subject     String
+  status      String @default("OPEN")
+  priority    String @default("NORMAL")
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model Inquiry {
+  id          String @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  message     String
+  status      String @default("NEW")
+  createdAt   DateTime @default(now())
+}
+
+model SystemSetting {
+  key   String @id
+  value Json
+}

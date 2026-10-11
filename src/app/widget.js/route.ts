@@ -1,0 +1,14 @@
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/db";
+
+export async function GET(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("w") || "";
+  const ws = await prisma.workspace.findUnique({ where: { id } });
+  const cfg = ((ws?.settings as Record<string, unknown>)?.widget || {}) as { phone?: string; greeting?: string; color?: string; position?: string; cta?: string };
+  if (!ws || !cfg.phone) return new Response("/* widget not configured */", { headers: { "Content-Type": "application/javascript" } });
+  const c = JSON.stringify({ phone: String(cfg.phone).replace(/\D/g, ""), greeting: cfg.greeting || "Hi! How can we help you?", color: cfg.color || "#25D366", left: cfg.position === "left", cta: cfg.cta || "Chat with us", name: ws.brandName || ws.name });
+  const js = `(function(){var c=${c};var d=document,b=d.createElement('div');b.style.cssText='position:fixed;bottom:20px;'+(c.left?'left':'right')+':20px;z-index:2147483647;font-family:system-ui,sans-serif';
+b.innerHTML='<div id="bwk-box" style="display:none;width:300px;margin-bottom:12px;border-radius:16px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.2);background:#fff"><div style="background:'+c.color+';color:#fff;padding:14px 16px;font-weight:600">'+c.name+'</div><div style="padding:16px;background:#efeae2"><div style="background:#fff;border-radius:10px;padding:10px 12px;font-size:14px;color:#111;max-width:85%">'+c.greeting+'</div></div><a target="_blank" href="https://wa.me/'+c.phone+'" style="display:block;text-align:center;background:'+c.color+';color:#fff;padding:12px;text-decoration:none;font-weight:600">'+c.cta+'</a></div><button id="bwk-btn" aria-label="WhatsApp" style="float:'+(c.left?'left':'right')+';width:58px;height:58px;border-radius:50%;border:0;background:'+c.color+';box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer"><svg viewBox="0 0 32 32" width="30" height="30" fill="#fff"><path d="M16 3C9 3 3.3 8.7 3.3 15.7c0 2.2.6 4.4 1.7 6.3L3 29l7.2-1.9c1.8 1 3.9 1.5 5.9 1.5 7 0 12.7-5.7 12.7-12.7S23 3 16 3zm0 23.2c-1.9 0-3.8-.5-5.4-1.5l-.4-.2-4.3 1.1 1.1-4.2-.3-.4c-1.1-1.7-1.6-3.6-1.6-5.6C5.1 9.9 10 5.1 16 5.1S26.9 10 26.9 15.9 22 26.2 16 26.2zm6-7.7c-.3-.2-1.9-1-2.2-1.1-.3-.1-.5-.2-.7.2-.2.3-.8 1.1-1 1.3-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-1.9-1.8-2.2-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.4.3-.6.1-.2 0-.4 0-.6l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.1-1.2 2.8s1.2 3.2 1.4 3.5c.2.2 2.4 3.7 5.8 5.1 2.9 1.1 3.4.9 4 .8.6-.1 1.9-.8 2.2-1.5.3-.8.3-1.4.2-1.5-.1-.2-.3-.3-.6-.4z"/></svg></button>';
+d.body.appendChild(b);d.getElementById('bwk-btn').onclick=function(){var x=d.getElementById('bwk-box');x.style.display=x.style.display==='none'?'block':'none'};})();`;
+  return new Response(js, { headers: { "Content-Type": "application/javascript", "Cache-Control": "public, max-age=300", "Access-Control-Allow-Origin": "*" } });
+}
